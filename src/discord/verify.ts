@@ -9,7 +9,6 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-/** Discord signs `timestamp + rawBody`; anything unverified must get a 401 or Discord drops the endpoint. */
 export async function verifyRequest(
   request: Request,
   rawBody: string,

@@ -29,7 +29,6 @@ function plain(html: string): string {
     .trim();
 }
 
-/** Discord renders `<t:unix:F>` in the reader's own timezone. */
 function discordTime(iso: string): string | null {
   const ms = Date.parse(iso);
   return Number.isNaN(ms) ? null : `<t:${Math.floor(ms / 1000)}:F>`;

@@ -33,7 +33,6 @@ export function getInteger(command: ResolvedCommand, name: string): number | und
   return typeof value === 'number' ? value : undefined;
 }
 
-/** Comma-separated, so a pattern cannot itself contain a comma. */
 export function splitList(value: string | undefined): string[] {
   if (!value) return [];
   return value

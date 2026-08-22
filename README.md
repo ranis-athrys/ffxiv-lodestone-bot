@@ -1,87 +1,71 @@
 # ffxiv-lodestone-bot
 
-A Discord bot that posts FFXIV Lodestone news, filtered. Generic Lodestone RSS
-bots post all six news categories, which buries the interesting items under
-maintenance notices, RMT ban waves, and blog columns. This one drops whole
-categories and filters the rest by title.
+A Discord bot that filters FFXIV Lodestone news by category and title. It runs
+as a Cloudflare Worker, polls every ten minutes, and stores per-guild rules in
+KV. News comes from [lodestonenews.com](https://lodestonenews.com).
 
-It runs as a Cloudflare Worker. A cron trigger polls every ten minutes; the same
-Worker serves Discord's HTTP interactions endpoint, so there is no gateway
-connection and no long-running process.
-
-Out of the box it posts Mog Station releases, seasonal events, and patches, and
-drops everything else. Rules are stored per guild and edited from inside Discord.
-
-News comes from [lodestonenews.com](https://lodestonenews.com), a community
-mirror that scrapes the Lodestone and serves category-tagged JSON. Square Enix's
-own Atom feeds carry no category tags.
+Default rules post Mog Station releases, seasonal events, and patches.
 
 ## Setup
 
-Create an application at the [Discord developer
-portal](https://discord.com/developers/applications). Note the application ID
-and public key, then add a bot and copy its token. Invite it with the `bot` and
-`applications.commands` scopes and the Send Messages and Embed Links
-permissions — `applications.commands` alone registers the commands without
-adding the bot, and posting then fails.
+Create a Discord application, add a bot, and invite it with the `bot` and
+`applications.commands` scopes plus Send Messages and Embed Links permissions.
 
 ```sh
 npm install
 npx wrangler login
-npx wrangler kv namespace create LODESTONE   # put the id in wrangler.jsonc
+npx wrangler kv namespace create LODESTONE
 npx wrangler secret put DISCORD_APPLICATION_ID
 npx wrangler secret put DISCORD_PUBLIC_KEY
 npx wrangler secret put DISCORD_BOT_TOKEN
 npx wrangler deploy
 ```
 
-Set the deployed Worker URL as the application's *Interactions Endpoint URL*.
-Discord verifies it with a signed ping and rejects it if verification fails.
+Put the KV namespace id in `wrangler.jsonc`. Set the deployed Worker URL as the
+Discord application's Interactions Endpoint URL.
 
-Register the commands, then configure the bot in Discord:
+Register commands and enable a destination:
 
 ```sh
 DISCORD_APPLICATION_ID=... DISCORD_BOT_TOKEN=... DISCORD_GUILD_ID=... npm run register
 ```
 
-```
+```text
 /lodestone channel #your-channel
 /lodestone enable
 ```
 
-The first poll after enabling adopts the current Lodestone backlog without
-posting it, so enabling does not flood the channel.
+The first poll records the current backlog without posting it.
 
 ## Commands
 
-All require Manage Server and reply privately.
+All commands require Manage Server and reply privately.
 
 | Command | Effect |
 | --- | --- |
-| `/lodestone status` | configuration, last poll, last error, whether the bot can post |
-| `/lodestone channel <channel>` | set the destination |
-| `/lodestone enable` / `disable` | start or stop posting |
-| `/lodestone poll` | poll now instead of waiting for the cron |
-| `/lodestone preview [count]` | show how recent real articles would be handled |
-| `/lodestone test <title> [category]` | check one headline against the rules |
-| `/lodestone rules list` | show every rule and its patterns |
-| `/lodestone rules add <name> <categories> [include] [exclude]` | add a rule |
-| `/lodestone rules remove <id>` | delete a rule |
-| `/lodestone rules toggle <id>` | enable or disable a rule |
-| `/lodestone rules reset` | restore the defaults |
+| `/lodestone status` | Show configuration and poll status |
+| `/lodestone channel <channel>` | Set the destination |
+| `/lodestone enable` / `disable` | Start or stop posting |
+| `/lodestone poll` | Poll now |
+| `/lodestone preview [count]` | Preview matches against recent articles |
+| `/lodestone test <title> [category]` | Test a headline |
+| `/lodestone rules list` | List rules and patterns |
+| `/lodestone rules add <name> <categories> [include] [exclude]` | Add a rule |
+| `/lodestone rules remove <id>` | Delete a rule |
+| `/lodestone rules toggle <id>` | Enable or disable a rule |
+| `/lodestone rules reset` | Restore defaults |
 
 ## Rules
 
-An article is posted if it matches at least one enabled rule: its category is in
-the rule's `categories`, its title matches one of `include`, and its title
-matches none of `exclude`. An empty `include` matches every article in those
-categories.
+A rule matches when its category matches, at least one `include` pattern
+matches, and no `exclude` pattern matches. An empty `include` matches every
+article in the selected categories. Patterns are comma-separated,
+case-insensitive regular expressions.
 
-Categories are `topics`, `updates`, `notices`, `maintenance`, `status`, and
-`developers`. Patterns are case-insensitive regular expressions, comma-separated.
-Each post's footer names the rule that matched it.
+Categories: `topics`, `updates`, `notices`, `maintenance`, `status`, and
+`developers`.
 
-```
+```text
 /lodestone rules add name:Free Login categories:topics include:free login,welcome back
 /lodestone rules add name:Maintenance categories:maintenance exclude:emergency,follow-up
 ```
@@ -94,31 +78,18 @@ npm run typecheck
 npm run dev
 ```
 
-Copy `.dev.vars.example` to `.dev.vars` first. `worker-configuration.d.ts` is
-generated by `npm run types` and is not checked in.
+Copy `.dev.vars.example` to `.dev.vars`. Generate
+`worker-configuration.d.ts` with `npm run types`; the file is not committed.
 
-## Reuse
+## Template reuse
 
-This repo is a GitHub template. Deleting `src/rules.ts`, `src/lodestone.ts`, and
-the concrete handlers in `src/discord/commands.ts` leaves a working Discord bot
-on Workers: signature verification, command dispatch, deferred replies, per-guild
-KV config, and a cron poll loop.
+Delete `src/rules.ts`, `src/lodestone.ts`, and the concrete handlers in
+`src/discord/commands.ts` to reuse the Discord/Workers shell.
 
-Things worth knowing before you fork it:
-
-- Workers implement the standard `Ed25519` algorithm name. The legacy
-  `NODE-ED25519` is still in Cloudflare's docs and is not what you want.
-- `@cloudflare/vitest-pool-workers` 0.22 replaced `defineWorkersConfig` with a
-  `cloudflareTest()` Vite plugin. Older examples fail with `Missing "./config"
-  specifier`.
-- An app installed with `applications.commands` but no `bot` scope answers slash
-  commands and cannot post. It fails as silence, not as an error — see
-  `checkPostAccess` in `src/discord/api.ts`.
-- Interactions must be answered within three seconds. Anything doing network work
-  must defer, then `PATCH /webhooks/{app}/{token}/messages/@original`.
-- `wrangler types` reads secret *names* from `.dev.vars`, so CI copies
-  `.dev.vars.example` before generating types.
-- `wrangler dev` and `wrangler deploy` rewrite `worker-configuration.d.ts`, which
-  is why it is not checked in.
-- KV is eventually consistent. Config and the seen-set are separate keys so the
-  ten-minute poll never clobbers a rule edit.
+- Use `Ed25519`, not the legacy `NODE-ED25519` name.
+- Vitest pool 0.22 uses the `cloudflareTest()` Vite plugin.
+- Install both `bot` and `applications.commands`; command-only installs cannot
+  post.
+- Defer interactions before network work, then edit the original response.
+- Copy `.dev.vars.example` before `wrangler types` in CI.
+- Keep config and seen ids in separate KV keys to avoid poll/edit races.

@@ -12,7 +12,6 @@ function article(category: Category, title: string): Article {
   };
 }
 
-/** Real headlines pulled from the Lodestone feed. */
 const WANTED: [Category, string, string][] = [
   ['topics', 'New Optional Items Available!', 'mogstation'],
   ['topics', 'Add New Style with Optional Items!', 'mogstation'],

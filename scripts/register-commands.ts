@@ -1,4 +1,3 @@
-/** Set DISCORD_GUILD_ID to register to one server instantly; without it, global registration takes up to an hour. */
 import { CATEGORIES } from '../src/lodestone.ts';
 
 const OptionType = {

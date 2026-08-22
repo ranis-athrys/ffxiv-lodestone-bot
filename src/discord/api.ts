@@ -56,7 +56,6 @@ export interface AccessProblem {
   fix: string;
 }
 
-/** Discord has no "can I post here" probe; a readable guild and channel is the closest proxy. */
 export async function checkPostAccess(
   botToken: string,
   guildId: string,

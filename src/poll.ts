@@ -4,7 +4,6 @@ import { getSeen, putSeen, putState, type GuildState } from './store.ts';
 import { buildEmbed } from './discord/embeds.ts';
 import { DiscordError, postMessage } from './discord/api.ts';
 
-/** Spill anything beyond this into the next run rather than flooding a channel. */
 const MAX_POSTS_PER_RUN = 8;
 
 export interface PollResult {

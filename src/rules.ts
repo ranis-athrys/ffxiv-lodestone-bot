@@ -4,7 +4,6 @@ export interface Rule {
   id: string;
   name: string;
   categories: Category[];
-  /** Empty matches every article in `categories`. */
   include: string[];
   exclude: string[];
   enabled: boolean;

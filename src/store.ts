@@ -5,14 +5,12 @@ export interface GuildState {
   channelId: string | null;
   enabled: boolean;
   rules: Rule[];
-  /** False until the first poll has adopted the backlog without posting it. */
   seeded: boolean;
   lastPollAt?: string;
   lastPostAt?: string;
   lastError?: string;
 }
 
-/** Several times the number of articles the feed can return at once. */
 const SEEN_LIMIT = 500;
 
 const stateKey = (guildId: string) => `state:${guildId}`;
